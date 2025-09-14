@@ -1,69 +1,72 @@
 <?php
 header("Content-Type: application/json");
-include(__DIR__ . '/../config/conexion.php');
+
+require_once __DIR__ . '/../../PHPMailer/src/PHPMailer.php';
+require_once __DIR__ . '/../../PHPMailer/src/SMTP.php';
+require_once __DIR__ . '/../../PHPMailer/src/Exception.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-require __DIR__ . "/../../vendor/autoload.php";
+include(__DIR__ . "/../config/conexion.php");
+
+// Crear instancia de la base de datos y obtener conexión
+$db = new Database();
+$pdo = $db->getConnection();
 
 $data = json_decode(file_get_contents("php://input"), true);
+$email = trim($data["email"] ?? "");
 
-if (!$data || empty($data["email"])) {
+if (empty($email)) {
     echo json_encode(["status" => "error", "message" => "Correo requerido"]);
     exit;
 }
 
-$email = $data["email"];
-
-// Buscar usuario
-$stmt = $pdo->prepare("SELECT id, nombre FROM usuarios WHERE email = ?");
+// Verificar usuario por email en tabla fundaciones y obtener id de usuario
+$stmt = $pdo->prepare("
+    SELECT u.id 
+    FROM usuarios u
+    JOIN fundaciones f ON u.fundacion_id = f.id
+    WHERE f.email = ?
+");
 $stmt->execute([$email]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+$user = $stmt->fetch();
 
 if (!$user) {
-    echo json_encode(["status" => "error", "message" => "No existe usuario con ese correo"]);
+    echo json_encode(["status" => "error", "message" => "No existe usuario con este correo"]);
     exit;
 }
 
-// Generar token único
-$token = bin2hex(random_bytes(32));
-$expira = date("Y-m-d H:i:s", strtotime("+1 hour"));
-
-// Guardar token en tabla de resets
-$stmt = $pdo->prepare("INSERT INTO password_resets (user_id, token, expira) VALUES (?, ?, ?)");
-$stmt->execute([$user["id"], $token, $expira]);
-
-// Enlace de reset
-$link = "http://tusitio.com/OnClub/Frontend/reset-password.php?token=" . $token;
+// Generar código y guardar en tabla usuarios
+$code = random_int(100000, 999999);
+$stmt = $pdo->prepare("
+    UPDATE usuarios 
+    SET reset_code = ?, reset_expire = DATE_ADD(NOW(), INTERVAL 10 MINUTE) 
+    WHERE id = ?
+");
+$stmt->execute([$code, $user['id']]);
 
 // Enviar correo con PHPMailer
 $mail = new PHPMailer(true);
 
 try {
-    // Config SMTP (ejemplo con Gmail)
+    // Configura SMTP
     $mail->isSMTP();
-    $mail->Host       = "smtp.gmail.com";
-    $mail->SMTPAuth   = true;
-    $mail->Username   = "onclubv.x@gmail.com";  
-    $mail->Password   = "kdvt gttb lqct wrej";      
-    $mail->SMTPSecure = "tls";
-    $mail->Port       = 587;
+    $mail->Host = 'smtp.gmail.com'; // Cambia si usas otro
+    $mail->SMTPAuth = true;
+    $mail->Username = 'onclubv.x@gmail.com';
+    $mail->Password = 'kdvt gttb lqct wrej'; // Usa app password o env vars por seguridad
+    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+    $mail->Port = 587;
 
-    $mail->setFrom("no-reply@onclub.com", "OnClub");
-    $mail->addAddress($email, $user["nombre"]);
-
-    $mail->isHTML(true);
-    $mail->Subject = "Restablecer tu contraseña - OnClub";
-    $mail->Body    = "
-        <h2>Hola {$user['nombre']},</h2>
-        <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace:</p>
-        <p><a href='$link' style='background:#4F46E5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;'>Restablecer Contraseña</a></p>
-        <p>Este enlace expira en 1 hora.</p>
-    ";
+    $mail->setFrom('onclubv.x@gmail.com', 'OnClub');
+    $mail->addAddress($email);
+    $mail->Subject = "Código de recuperación";
+    $mail->Body = "Tu código de verificación es: $code";
 
     $mail->send();
-    echo json_encode(["status" => "success", "message" => "Hemos enviado un correo con instrucciones"]);
+
+    echo json_encode(["status" => "success", "message" => "Código enviado a tu correo"]);
 } catch (Exception $e) {
     echo json_encode(["status" => "error", "message" => "Error al enviar correo: {$mail->ErrorInfo}"]);
 }

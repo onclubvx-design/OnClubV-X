@@ -6,8 +6,8 @@ require_once __DIR__ . '/../config/conexion.php';
 
 try {
     // Crear conexión con la base de datos
-    $conexion = new Conexion();
-    $conn = $conexion->conectar();
+    $db = new Database();$database = new Database();
+    $conn = $database->getConnection();
 
     // Leer datos JSON o POST
     $raw = file_get_contents("php://input");

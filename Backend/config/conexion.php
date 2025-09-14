@@ -1,12 +1,12 @@
 <?php
-class Conexion {
+class Database {
     private $host = "localhost";
     private $db_name = "onclub";
     private $username = "root";
     private $password = "";
     public $conn;
 
-    public function conectar() {
+    public function getConnection() {
         $this->conn = null;
 
         try {

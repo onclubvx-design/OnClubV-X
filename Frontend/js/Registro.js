@@ -2,388 +2,439 @@
 // VARIABLES GLOBALES
 // ======================
 const modalOverlay = document.getElementById("modalOverlay");
-const openModalBtn = document.getElementById("openModalBtn"); // Botón "Acceder"
-const closeModalBtn = document.querySelector(".close-btn");
+const openModalBtn = document.getElementById("openModalBtn");
+const closeModalBtn = document.getElementById("closeModalBtn");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabPanes = document.querySelectorAll(".tab-pane");
+
 const registrationForm = document.getElementById("registrationForm");
 const loginForm = document.getElementById("loginForm");
+const emailForm = document.getElementById("emailForm");
+const codeForm = document.getElementById("codeForm");
+const passwordForm = document.getElementById("passwordForm");
+
 const successAlert = document.getElementById("successAlert");
-const welcomeScreen = document.getElementById("welcomeScreen");
-const openLoginBtn = document.getElementById("openLoginBtn"); // Botón "Acceso Administrativo"
+
+const passwordRecoveryModal = document.getElementById("passwordRecoveryModal");
+const openForgotPassword = document.getElementById("openForgotPassword");
+const closeRecoveryBtn = document.getElementById("closeRecoveryBtn");
+
+const stepEmail = document.getElementById("stepEmail");
+const stepCode = document.getElementById("stepCode");
+const stepNewPassword = document.getElementById("stepNewPassword");
+const emailDisplay = document.getElementById("emailDisplay");
+const countdownElement = document.getElementById("countdown");
+
+const registerTab = document.getElementById("registerTab");
+const loginTab = document.getElementById("loginTab");
+const registerPane = document.getElementById("registerPane");
+const loginPane = document.getElementById("loginPane");
+
+const backToLoginFromEmailBtn = document.getElementById("backToLoginFromEmail");
+const backToEmailBtn = document.getElementById("backToEmail");
+const backToCodeBtn = document.getElementById("backToCode");
+const resendCodeBtn = document.getElementById("resendCode");
+
+
+let countdownTimer;
+let countdownValue = 300;
 
 // ======================
-// GESTIÓN DEL MODAL
+// CONFIG API
 // ======================
-class ModalManager {
-    static open(defaultTab = "register") {
-        if (modalOverlay) {
-            modalOverlay.classList.add("show");
-            document.body.style.overflow = "hidden";
+const API_BASE_URL = "../../Backend/Api";
+const API_ENDPOINTS = {
+    REGISTER: `${API_BASE_URL}/Fundaciones.php`,
+    LOGIN: `${API_BASE_URL}/Login.php`,
+    FORGOT_PASSWORD: `${API_BASE_URL}/ForgotPassword.php`,
+    VERIFY_CODE: `${API_BASE_URL}/verify_code.php`,
+    RESET_PASSWORD: `${API_BASE_URL}/reset_password.php`
+};
 
-            if (defaultTab === "login") {
-                TabManager.activateTab("loginTab", "loginPane");
-            } else if (defaultTab === "recover") {
-                TabManager.activateTab(null, "recoverPane");
-            } else {
-                TabManager.activateTab("registerTab", "registerPane");
-            }
-        }
+// ======================
+// ABRIR Y CERRAR MODAL
+// ======================
+openModalBtn.addEventListener("click", () => {
+    modalOverlay.classList.add("show");
+});
+
+closeModalBtn.addEventListener("click", () => {
+    modalOverlay.classList.remove("show");
+});
+
+// Cerrar modal haciendo clic fuera del contenedor
+modalOverlay.addEventListener("click", (e) => {
+    if (e.target === modalOverlay) {
+        modalOverlay.classList.remove("show");
     }
+});
 
-    static close() {
-        if (modalOverlay) {
-            modalOverlay.classList.remove("show");
-            document.body.style.overflow = "";
-        }
-    }
-
-    static init() {
-        if (openModalBtn) {
-            openModalBtn.addEventListener("click", () => {
-                this.open("register");
-            });
-        }
-
-        if (openLoginBtn) {
-            openLoginBtn.addEventListener("click", () => {
-                this.open("login");
-            });
-        }
-
-        if (modalOverlay) {
-            modalOverlay.addEventListener("click", (e) => {
-                if (e.target === modalOverlay) {
-                    this.close();
-                }
-            });
-        }
-
-        document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape" && modalOverlay?.classList.contains("show")) {
-                this.close();
-            }
-        });
-    }
+// ======================
+// FUNCIONES BÁSICAS
+// ======================
+function openModal() {
+    modalOverlay.classList.add("active");
+    document.body.style.overflow = "hidden"; // evita scroll detrás
 }
 
-// ======================
-// GESTIÓN DE PESTAÑAS
-// ======================
-class TabManager {
-    static activateTab(tabId, paneId) {
-        tabButtons.forEach(btn => btn.classList.remove("active"));
-        tabPanes.forEach(pane => pane.classList.remove("active"));
-
-        const selectedTab = document.getElementById(tabId);
-        const selectedPane = document.getElementById(paneId);
-
-        if (selectedTab) selectedTab.classList.add("active");
-        if (selectedPane) selectedPane.classList.add("active");
-    }
-
-    static init() {
-        tabButtons.forEach(btn => {
-            btn.addEventListener("click", () => {
-                const target = btn.getAttribute("data-target");
-                if (target === "registerPane") {
-                    this.activateTab("registerTab", "registerPane");
-                } else if (target === "loginPane") {
-                    this.activateTab("loginTab", "loginPane");
-                }
-            });
-        });
-    }
-}
-
-// ======================
-// SISTEMA DE ALERTAS
-// ======================
-class AlertManager {
-    static show(message, isSuccess = true) {
-        if (!successAlert) return;
-
-        successAlert.textContent = message;
-        successAlert.style.background = isSuccess
-            ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
-            : "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)";
-
-        successAlert.classList.add("show");
-
-        setTimeout(() => {
-            successAlert.classList.remove("show");
-        }, 3000);
-    }
-}
-
-// ======================
-// VALIDACIÓN DE FORMULARIOS
-// ======================
-class FormValidator {
-    static validateEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-
-    static validateURL(url) {
-        if (!url) return true;
-        try {
-            new URL(url);
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    static validateRegistrationForm(formData) {
-        const errors = [];
-        if (!formData.organizationName?.trim()) errors.push("El nombre de la organización es requerido");
-        if (!formData.email?.trim()) errors.push("El correo electrónico es requerido");
-        else if (!this.validateEmail(formData.email)) errors.push("El formato del correo electrónico no es válido");
-        if (!formData.phone?.trim()) errors.push("El teléfono es requerido");
-        if (!formData.location?.trim()) errors.push("La ubicación es requerida");
-        if (formData.website && !this.validateURL(formData.website)) errors.push("El formato del sitio web no es válido");
-        return errors;
-    }
-
-    static validateLoginForm(formData) {
-        const errors = [];
-        if (!formData.usuario?.trim()) errors.push("El usuario es requerido");
-        if (!formData.password?.trim()) errors.push("La contraseña es requerida");
-        return errors;
-    }
-
-    static setupRealTimeValidation() {
-        document.querySelectorAll('input[required]').forEach(input => {
-            input.addEventListener('blur', function() {
-                this.style.borderColor = this.value.trim() ? '#10b981' : '#ef4444';
-            });
-            input.addEventListener('input', function() {
-                this.style.borderColor = '';
-            });
-        });
-    }
-}
-
-// ======================
-// GESTIÓN DE REGISTRO
-// ======================
-class RegistrationManager {
-    static async submitRegistration(formData) {
-        try {
-            const response = await fetch("/OnClub/Backend/Api/Fundaciones.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData)
-            });
-            return await response.json();
-        } catch (error) {
-            console.error("Error en registro:", error);
-            throw error;
-        }
-    }
-
-    static init() {
-        if (!registrationForm) return;
-
-        registrationForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const formData = {
-                organizationName: document.getElementById("organizationName")?.value || "",
-                email: document.getElementById("email")?.value || "",
-                phone: document.getElementById("phone")?.value || "",
-                location: document.getElementById("location")?.value || "",
-                website: document.getElementById("website")?.value || "",
-                description: document.getElementById("description")?.value || ""
-            };
-
-            const validationErrors = FormValidator.validateRegistrationForm(formData);
-            if (validationErrors.length > 0) {
-                AlertManager.show("❌ " + validationErrors[0], false);
-                return;
-            }
-
-            const submitBtn = registrationForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn?.textContent;
-            submitBtn.textContent = "Enviando...";
-            submitBtn.disabled = true;
-
-            try {
-                const result = await this.submitRegistration(formData);
-                if (result.status === "success") {
-                    AlertManager.show("✅ Registro exitoso. Revisa tu correo.", true);
-                    registrationForm.reset();
-                    ModalManager.close();
-                    setTimeout(() => ModalManager.open("login"), 2000);
-                } else {
-                    AlertManager.show("❌ " + (result.message || "Error en el registro"), false);
-                }
-            } catch {
-                AlertManager.show("⚠️ Error de conexión con el servidor.", false);
-            } finally {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
-            }
-        });
-    }
-}
-
-// ======================
-// GESTIÓN DE LOGIN
-// ======================
-class LoginManager {
-    static async submitLogin(credentials) {
-        try {
-            const response = await fetch("/OnClub/Backend/Api/Login.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(credentials)
-            });
-            return await response.json();
-        } catch (error) {
-            console.error("Error en login:", error);
-            throw error;
-        }
-    }
-
-    static init() {
-        if (!loginForm) return;
-
-        loginForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const credentials = {
-                usuario: document.getElementById("loginUsuario")?.value || "",
-                password: document.getElementById("loginPassword")?.value || ""
-            };
-
-            const validationErrors = FormValidator.validateLoginForm(credentials);
-            if (validationErrors.length > 0) {
-                AlertManager.show("❌ " + validationErrors[0], false);
-                return;
-            }
-
-            const submitBtn = loginForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn?.textContent;
-            submitBtn.textContent = "Accediendo...";
-            submitBtn.disabled = true;
-
-            try {
-                const result = await this.submitLogin(credentials);
-                if (result.status === "success") {
-                    AlertManager.show("¡Bienvenido " + (result.usuario?.nombre || "") + "!", true);
-                    setTimeout(() => window.location.href = result.redirect, 1500);
-                } else {
-                    AlertManager.show("❌ " + (result.message || "Error en el login"), false);
-                }
-            } catch {
-                AlertManager.show("⚠️ Error de conexión con el servidor.", false);
-            } finally {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
-            }
-        });
-    }
-}
-
-// ======================
-// GESTIÓN DE OLVIDO DE CONTRASEÑA
-// ======================
-class ForgotPasswordManager {
-    static async submitForgotPassword(email) {
-        try {
-            const response = await fetch("/OnClub/Backend/Api/ForgotPassword.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email })
-            });
-            return await response.json();
-        } catch (error) {
-            console.error("Error en recuperación:", error);
-            throw error;
-        }
-    }
-
-    static init() {
-        const forgotPasswordForm = document.getElementById("forgotPasswordForm");
-        const forgotPasswordLink = document.getElementById("forgotPasswordLink");
-
-        if (forgotPasswordLink) {
-            forgotPasswordLink.addEventListener("click", (e) => {
-                e.preventDefault();
-                ModalManager.open("recover");
-            });
-        }
-
-        if (forgotPasswordForm) {
-            forgotPasswordForm.addEventListener("submit", async (e) => {
-                e.preventDefault();
-                const email = document.getElementById("forgotEmail")?.value || "";
-
-                if (!FormValidator.validateEmail(email)) {
-                    AlertManager.show("❌ Ingresa un correo válido", false);
-                    return;
-                }
-
-                const submitBtn = forgotPasswordForm.querySelector("button[type='submit']");
-                const originalText = submitBtn.textContent;
-                submitBtn.textContent = "Enviando...";
-                submitBtn.disabled = true;
-
-                try {
-                    const result = await this.submitForgotPassword(email);
-                    if (result.status === "success") {
-                        AlertManager.show("✅ Revisa tu correo para restablecer la contraseña", true);
-                        forgotPasswordForm.reset();
-                        setTimeout(() => TabManager.activateTab("loginTab", "loginPane"), 2500);
-                    } else {
-                        AlertManager.show("❌ " + (result.message || "Error en la solicitud"), false);
-                    }
-                } catch {
-                    AlertManager.show("⚠️ Error de conexión con el servidor.", false);
-                } finally {
-                    submitBtn.textContent = originalText;
-                    submitBtn.disabled = false;
-                }
-            });
-        }
-    }
-}
-
-// ======================
-// INICIALIZACIÓN
-// ======================
-class OnClubApp {
-    static init() {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.initialize());
-        } else {
-            this.initialize();
-        }
-    }
-
-    static initialize() {
-        ModalManager.init();
-        TabManager.init();
-        FormValidator.setupRealTimeValidation();
-        RegistrationManager.init();
-        LoginManager.init();
-        ForgotPasswordManager.init();
-
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('open') === 'login') {
-            ModalManager.open("login");
-        }
-    }
-}
-
-// ======================
-// FUNCIONES GLOBALES
-// ======================
 function closeModal() {
-    ModalManager.close();
+    modalOverlay.classList.remove("active");
+    document.body.style.overflow = ""; // restaura scroll
+}
+
+function showAlert(message, type = "success") {
+    successAlert.textContent = message;
+    successAlert.className = `success-alert ${type}`;
+    successAlert.style.display = "block";
+    setTimeout(() => (successAlert.style.display = "none"), 3000);
+}
+
+async function makeApiRequest(url, data) {
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        showAlert(`Error en la conexión: ${error.message}`, "error");
+        return null;
+    }
 }
 
 // ======================
-// INICIAR APP
+// TABS
 // ======================
-OnClubApp.init();
+function activarTab(tab, pane) {
+    // quitar active de tabs
+    registerTab.classList.remove("active");
+    loginTab.classList.remove("active");
+
+    // quitar active de panes
+    registerPane.classList.remove("active");
+    loginPane.classList.remove("active");
+
+    // activar el tab y el pane seleccionados
+    tab.classList.add("active");
+    pane.classList.add("active");
+}
+
+registerTab.addEventListener("click", () => {
+    activarTab(registerTab, registerPane);
+});
+
+loginTab.addEventListener("click", () => {
+    activarTab(loginTab, loginPane);
+});
+
+// ======================
+// REGISTRO
+// ======================
+registrationForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = registrationForm.querySelector("button[type='submit']");
+    btn.disabled = true;
+    btn.textContent = "Enviando...";
+
+    const data = {
+        organizationName: registrationForm.organizationName.value,
+        email: registrationForm.email.value,
+        phone: registrationForm.phone.value,
+        location: registrationForm.location.value,
+        website: registrationForm.website.value,
+        description: registrationForm.description.value
+    };
+
+    const result = await makeApiRequest(API_ENDPOINTS.REGISTER, data);
+    console.log("Respuesta del backend (Registro):", result);
+
+    btn.disabled = false;
+    btn.textContent = "Registrar";
+
+    if (result?.status === "success") {
+        showAlert("Registro exitoso ✅", "success");
+        registrationForm.reset();
+
+        // 👉 Si el backend devuelve redirect, mandamos al usuario allí
+        if (result.redirect) {
+            window.location.href = result.redirect;
+        } else {
+            // Si no devuelve redirect, simplemente pasamos a login
+            activarTab(loginTab, loginPane);
+        }
+    } else {
+        showAlert(result?.message || "Error en el registro ❌", "error");
+    }
+});
+
+// ======================
+// LOGIN
+// ======================
+loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const data = {
+        usuario: loginForm.loginUsuario.value,
+        password: loginForm.loginPassword.value
+    };
+
+    const result = await makeApiRequest(API_ENDPOINTS.LOGIN, data);
+    console.log("Respuesta del backend (Login):", result);
+
+    if (result?.status === "success") {
+        showAlert("Login exitoso ✅", "success");
+        loginForm.reset();
+        closeModal();
+
+        // 👉 Redirección según lo que devuelva el backend
+        if (result.redirect) {
+            window.location.href = result.redirect;
+        } else {
+            window.location.reload(); // si no devuelve nada, recargamos
+        }
+    } else {
+        showAlert(result?.message || "Credenciales incorrectas ❌", "error");
+    }
+});
+
+// ======================
+// RECUPERAR CONTRASEÑA
+// ======================
+function startCountdown() {
+    clearInterval(countdownTimer);
+    countdownValue = 300;
+
+    countdownTimer = setInterval(() => {
+        let minutes = Math.floor(countdownValue / 60);
+        let seconds = countdownValue % 60;
+        countdownElement.textContent = `${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        countdownValue--;
+
+        if (countdownValue < 0) clearInterval(countdownTimer);
+    }, 1000);
+}
+
+// abrir/cerrar modal recuperación
+function openRecoveryModal() {
+    passwordRecoveryModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+}
+
+function closeRecoveryModal() {
+    passwordRecoveryModal.classList.remove("show");
+    document.body.style.overflow = "";
+}
+
+openForgotPassword.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeModal();
+    setTimeout(openRecoveryModal, 300);
+});
+
+closeRecoveryBtn.addEventListener("click", closeRecoveryModal);
+
+passwordRecoveryModal.addEventListener("click", (e) => {
+    if (e.target === passwordRecoveryModal) closeRecoveryModal();
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && passwordRecoveryModal.classList.contains("show")) {
+        closeRecoveryModal();
+    }
+});
+
+// ======================
+// FUNCIONES RECUPERACIÓN
+// ======================
+async function sendVerificationCode(email) {
+    return await makeApiRequest(API_ENDPOINTS.FORGOT_PASSWORD, { email });
+}
+
+async function verifyCode(email, code) {
+    return await makeApiRequest(API_ENDPOINTS.VERIFY_CODE, { email, code });
+}
+
+async function resetPassword(email, password) {
+    return await makeApiRequest(API_ENDPOINTS.RESET_PASSWORD, { email, password });
+}
+
+function showRecoveryStep(stepId) {
+    stepEmail.classList.remove("active");
+    stepCode.classList.remove("active");
+    stepNewPassword.classList.remove("active");
+    document.getElementById(stepId).classList.add("active");
+}
+// ======================
+// FLUJO RECUPERACIÓN
+// ======================
+// Paso 1: enviar código
+emailForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("recoveryEmail").value.trim();
+
+    if (!validateEmail(email)) {
+        showAlert("Por favor, ingresa un correo electrónico válido", "error");
+        return;
+    }
+
+    recoveryEmail = email;
+    emailDisplay.textContent = email;
+
+    const submitBtn = emailForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = "Enviando...";
+    submitBtn.disabled = true;
+
+    try {
+        const result = await sendVerificationCode(email);
+        showAlert(result.message, result.status === "success" ? "success" : "error");
+
+        if (result.status === "success") {
+            showRecoveryStep("stepCode");
+            startCountdown();
+        }
+    } catch (error) {
+        showAlert("Error al enviar el código. Intenta nuevamente.", "error");
+    } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+});
+
+// Paso 2: verificar código
+codeForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const code = document.getElementById("verificationCode").value.trim();
+
+    if (!code || code.length !== 6) {
+        showAlert("Por favor, ingresa un código de 6 dígitos", "error");
+        return;
+    }
+
+    const submitBtn = codeForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = "Verificando...";
+    submitBtn.disabled = true;
+
+    try {
+        const result = await verifyCode(recoveryEmail, code);
+        showAlert(result.message, result.status === "success" ? "success" : "error");
+
+        if (result.status === "success") {
+            showRecoveryStep("stepNewPassword");
+            clearInterval(countdownTimer);
+        }
+    } catch (error) {
+        showAlert("Error al verificar el código. Intenta nuevamente.", "error");
+    } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+});
+
+// Paso 3: cambiar contraseña
+passwordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newPassword = document.getElementById("newPassword").value;
+    const confirmPassword = document.getElementById("confirmPassword").value;
+
+    const validationError = validatePassword(newPassword, confirmPassword);
+    if (validationError) {
+        showAlert(validationError, "error");
+        return;
+    }
+
+    const submitBtn = passwordForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = "Cambiando...";
+    submitBtn.disabled = true;
+
+    try {
+        const result = await resetPassword(recoveryEmail, newPassword);
+        showAlert(result.message, result.status === "success" ? "success" : "error");
+
+        if (result.status === "success") {
+            setTimeout(() => {
+                closeRecoveryModal();
+                openModal("login");
+            }, 1500);
+        }
+    } catch (error) {
+        showAlert("Error al cambiar la contraseña. Intenta nuevamente.", "error");
+    } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+});
+// ======================
+// VALIDACIONES
+// ======================
+function validateEmail(email) {
+    // Regex básico para validar correos
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function validatePassword(password, confirmPassword) {
+    if (password.length < 6) {
+        return "La contraseña debe tener al menos 6 caracteres";
+    }
+    if (password !== confirmPassword) {
+        return "Las contraseñas no coinciden";
+    }
+    return null; // No hay error
+}
+// Volver al login: cierra modal de recuperación y abre modal principal en pestaña Login
+if (backToLoginFromEmailBtn) {
+  backToLoginFromEmailBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeRecoveryModal();
+    // abrir modal principal y activar login después de un pequeño delay
+    setTimeout(() => {
+      openModal(); // abre modal principal
+      activarTab(loginTab, loginPane); // activa pestaña login
+    }, 200);
+  });
+}
+
+// Volver a paso Email (desde Código)
+if (backToEmailBtn) {
+  backToEmailBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    // Parar contador y volver al paso de email
+    clearInterval(countdownTimer);
+    showRecoveryStep("stepEmail");
+  });
+}
+
+// Volver a paso Código (desde Nueva Contraseña)
+if (backToCodeBtn) {
+  backToCodeBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    showRecoveryStep("stepCode");
+    // Reiniciar contador si hace falta
+    startCountdown();
+  });
+}
+const toggleLoginPassword = document.getElementById("toggleLoginPassword");
+const loginPassword = document.getElementById("loginPassword");
+
+toggleLoginPassword.addEventListener("click", () => {
+  const type = loginPassword.getAttribute("type") === "password" ? "text" : "password";
+  loginPassword.setAttribute("type", type);
+
+  // Cambia el icono según estado
+  toggleLoginPassword.textContent = type === "password" ? "👁️" : "🙈";
+});
+
+// ======================
+// BOTONES MODAL PRINCIPAL
+// ======================
+openModalBtn.addEventListener("click", openModal);
+closeModalBtn.addEventListener("click", closeModal);

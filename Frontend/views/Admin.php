@@ -10,8 +10,8 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 require_once '../../Backend/Config/conexion.php';
 
 // Crear conexión con la BD usando la clase Conexion
-$conexion = new Conexion();
-$conn = $conexion->conectar();
+$db = new Database();
+$pdo = $db->getConnection();
 ?>
 
 

@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
             button.classList.add('active');
             document.getElementById(tabId).classList.add('active');
             
-            // Cargar historial automáticamente cuando se hace clic en la pestaña
+            // Cargar historial automáticamente cuando se hace clic en la pestaña historial
             if (tabId === 'historial') {
                 cargarHistorial();
             }
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Función para cargar estadísticas
 function loadStats() {
-    fetch('../../Backend/Api/Caddies.php?action=stats')
+    fetch("../../Backend/Api/Caddies.php?action=stats")  // Cambié la acción a 'stats' para obtener estadísticas
         .then(response => {
             if (!response.ok) {
                 throw new Error('Error en la API: ' + response.status);
@@ -81,7 +81,6 @@ function loadCaddies() {
         })
         .catch(error => {
             console.error('Error loading caddies:', error);
-            // Mostrar mensaje de error en la tabla
             const tbody = document.querySelector('#caddies-table tbody');
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red; padding: 20px;">Error al cargar los caddies. Verifica la consola para más detalles.</td></tr>';
         });
@@ -171,17 +170,16 @@ function saveCaddie() {
         return response.json();
     })
     .then(data => {
-        if (data.success) {
-            alert('Caddie guardado exitosamente');
-            document.getElementById('caddie-form').reset();
-            document.getElementById('caddie-id').value = '';
-            document.getElementById('btn-submit').textContent = 'Agregar Caddie';
-            loadStats();
-            loadCaddies();
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
+    if (data.success) {
+        alert('Salida registrada exitosamente');
+        document.getElementById('attendance-result').style.display = 'none';
+        document.getElementById('search-attendance').value = '';
+        loadStats();
+        loadCaddies();
+    } else {
+        alert('Error: ' + (data.message || 'Error desconocido'));
+    }
+})
     .catch(error => {
         console.error('Error saving caddie:', error);
         alert('Error al guardar el caddie. Verifica la consola para más detalles.');
@@ -208,7 +206,6 @@ function editCaddie(id) {
             document.getElementById('correo').value = data.correo || '';
             document.getElementById('btn-submit').textContent = 'Actualizar Caddie';
             
-            // Scroll al formulario
             document.getElementById('caddie-form').scrollIntoView({behavior: 'smooth'});
         })
         .catch(error => {
@@ -269,11 +266,9 @@ function searchCaddie() {
                 resultName.textContent = `${caddie.nombre} ${caddie.apellido}`;
                 resultInfo.textContent = `Código: ${caddie.codigo_unico} | Documento: ${caddie.documento_identidad} | Tipo: ${caddie.tipo}`;
                 
-                // Configurar botones según estado
                 document.getElementById('btn-entrada').style.display = caddie.activo ? 'none' : 'inline-block';
                 document.getElementById('btn-salida').style.display = caddie.activo ? 'inline-block' : 'none';
                 
-                // Guardar ID para usar en registrarEntrada/Salida
                 resultDiv.setAttribute('data-caddie-id', caddie.id);
                 resultDiv.style.display = 'block';
             } else {
@@ -309,16 +304,16 @@ function registrarEntrada() {
             document.getElementById('attendance-result').style.display = 'none';
             document.getElementById('search-attendance').value = '';
             loadStats();
+            loadCaddies();
         } else {
-            alert('Error: ' + data.message);
+            alert('Error: ' + (data.message || 'Error desconocido'));
         }
     })
     .catch(error => {
-        console.error('Error registering entry:', error);
+        console.error('Error registrando entrada:', error);
         alert('Error al registrar la entrada. Verifica la consola para más detalles.');
     });
 }
-
 // Función para registrar salida
 function registrarSalida() {
     const caddieId = document.getElementById('attendance-result').getAttribute('data-caddie-id');
@@ -342,16 +337,25 @@ function registrarSalida() {
             document.getElementById('attendance-result').style.display = 'none';
             document.getElementById('search-attendance').value = '';
             loadStats();
+            loadCaddies();
         } else {
-            alert('Error: ' + data.message);
+            alert('Error: ' + (data.message || 'Error desconocido'));
         }
     })
     .catch(error => {
-        console.error('Error registering exit:', error);
+        console.error('Error registrando salida:', error);
         alert('Error al registrar la salida. Verifica la consola para más detalles.');
     });
 }
+// Funciones de historial y reporte (dejan para después si quieres)
 
+function cargarHistorial() {
+    // Implementar según API, similar a loadCaddies()
+}
+
+function loadReportFilters() {
+    // Implementar según requerimientos
+}
 // Función para cargar filtros de reportes
 function loadReportFilters() {
     // Cargar años (últimos 5 años)

@@ -1,8 +1,10 @@
 <?php
 header("Content-Type: application/json; charset=utf-8");
 
-// Configuración de errores
-ini_set('display_errors', 0);
+// Configuración de errores (solo para depuración, luego desactívalo en producción)
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/error_log.log');
 
@@ -59,7 +61,7 @@ try {
     $stmt->execute([$nombre, $email, $telefono, $ubicacion, $web, $descripcion]);
     $fundacionId = $conn->lastInsertId();
 
-    // Crear usuarios (ahora sin el número al final)
+    // Crear usuarios
     $baseUsuario  = strtolower(preg_replace('/\s+/', '', $nombre));
     $usuarioAdmin = $baseUsuario . ".admin";
     $usuarioRh    = $baseUsuario . ".rh";
@@ -71,10 +73,10 @@ try {
     $passAdminHash = password_hash($passAdminPlano, PASSWORD_BCRYPT);
     $passRhHash    = password_hash($passRhPlano, PASSWORD_BCRYPT);
 
-    // Insert usuarios
-    $stmt = $conn->prepare("INSERT INTO usuarios (fundacion_id, usuario, password, rol_id) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$fundacionId, $usuarioAdmin, $passAdminHash, 1]);
-    $stmt->execute([$fundacionId, $usuarioRh, $passRhHash, 2]);
+    // Insert usuarios (agrego también el campo nombre)
+    $stmt = $conn->prepare("INSERT INTO usuarios (fundacion_id, usuario, password, rol_id, nombre) VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute([$fundacionId, $usuarioAdmin, $passAdminHash, 1, $nombre]);
+    $stmt->execute([$fundacionId, $usuarioRh, $passRhHash, 2, $nombre]);
 
     // Enviar correo
     $mail = new PHPMailer(true);
@@ -105,7 +107,6 @@ try {
     </ul>
     <p>¡Bienvenido a la comunidad!</p>
 ";
-
 
     $mail->send();
 
