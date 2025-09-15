@@ -24,7 +24,7 @@
       </ul>
       <div class="nav-actions">
         <a href="../views/Registro.php" class="cta-button">Registrarse</a>
-        <a href="registro.php?open=login" class="btn-open-modal">Acceso Administrativo</a>
+        <a href="Registro.php?tab=login" class="btn-open-modal">Acceso Administrativo</a>
       </div>
     </nav>
   </header>

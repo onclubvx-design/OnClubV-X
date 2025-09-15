@@ -3,7 +3,6 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
@@ -17,12 +16,13 @@ class Caddies {
     private $table_name = "caddies";
 
     public function __construct() {
-        $db = new Database();
-        $pdo = $db->getConnection();
-        if (!$this->db) {
-            die(json_encode(["error" => "No se pudo conectar a la base de datos."]));
-        }
+    $db = new Database();
+    $this->db = $db->getConnection(); // Asignación correcta
+
+    if (!$this->db) {
+        die(json_encode(["error" => "No se pudo conectar a la base de datos."]));
     }
+}
 
     private function generateUniqueCode() {
         $query = "SELECT codigo_unico FROM {$this->table_name} 

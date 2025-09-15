@@ -35,7 +35,6 @@ const backToEmailBtn = document.getElementById("backToEmail");
 const backToCodeBtn = document.getElementById("backToCode");
 const resendCodeBtn = document.getElementById("resendCode");
 
-
 let countdownTimer;
 let countdownValue = 300;
 
@@ -432,7 +431,31 @@ toggleLoginPassword.addEventListener("click", () => {
   // Cambia el icono según estado
   toggleLoginPassword.textContent = type === "password" ? "👁️" : "🙈";
 });
+// Ingreso de login desde el Home
+document.addEventListener('DOMContentLoaded', function () {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
 
+    if (tab === 'login') {
+        // Mostrar el modal
+        const modalOverlay = document.getElementById('modalOverlay');
+        modalOverlay.classList.add('show'); 
+
+        // Activar pestaña de login
+        const loginTab = document.getElementById('loginTab');
+        const loginPane = document.getElementById('loginPane');
+        const registerTab = document.getElementById('registerTab');
+        const registerPane = document.getElementById('registerPane');
+
+        // Quitar active del registro
+        registerTab.classList.remove('active');
+        registerPane.classList.remove('active');
+
+        // Agregar active al login
+        loginTab.classList.add('active');
+        loginPane.classList.add('active');
+    }
+});
 // ======================
 // BOTONES MODAL PRINCIPAL
 // ======================

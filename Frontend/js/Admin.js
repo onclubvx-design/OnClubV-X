@@ -379,33 +379,36 @@ function loadReportFilters() {
             return response.json();
         })
         .then(data => {
-            // Para reportes
+            console.log("Respuesta recibida:", data);
+
             const caddieSelect = document.getElementById('report-caddie');
             caddieSelect.innerHTML = '<option value="all">Todos los caddies</option>';
-            
-            // Para historial
+
             const filtroCaddie = document.getElementById('filtro-caddie');
             filtroCaddie.innerHTML = '<option value="all">Todos los caddies</option>';
-            
-            data.forEach(caddie => {
-                // Opción para reportes
-                const option1 = document.createElement('option');
-                option1.value = caddie.id;
-                option1.textContent = `${caddie.nombre} ${caddie.apellido} (${caddie.codigo_unico})`;
-                caddieSelect.appendChild(option1);
-                
-                // Opción para historial
-                const option2 = document.createElement('option');
-                option2.value = caddie.id;
-                option2.textContent = `${caddie.nombre} ${caddie.apellido} (${caddie.codigo_unico})`;
-                filtroCaddie.appendChild(option2);
-            });
+
+            const caddiesArray = Array.isArray(data) ? data : data.data;
+
+            if (Array.isArray(caddiesArray)) {
+                caddiesArray.forEach(caddie => {
+                    const option1 = document.createElement('option');
+                    option1.value = caddie.id;
+                    option1.textContent = `${caddie.nombre} ${caddie.apellido} (${caddie.codigo_unico})`;
+                    caddieSelect.appendChild(option1);
+
+                    const option2 = document.createElement('option');
+                    option2.value = caddie.id;
+                    option2.textContent = `${caddie.nombre} ${caddie.apellido} (${caddie.codigo_unico})`;
+                    filtroCaddie.appendChild(option2);
+                });
+            } else {
+                console.error("La propiedad 'data' no es un array:", data);
+            }
         })
         .catch(error => {
             console.error('Error loading filters:', error);
         });
 }
-
 // Función para generar reporte
 function generateReport() {
     const month = document.getElementById('report-month').value;

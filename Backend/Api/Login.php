@@ -5,18 +5,13 @@ header("Content-Type: application/json; charset=utf-8");
 require_once __DIR__ . '/../config/conexion.php';
 
 try {
-    // Crear conexión con la base de datos
-    $db = new Database();$database = new Database();
+    $database = new Database();
     $conn = $database->getConnection();
 
     // Leer datos JSON o POST
     $raw = file_get_contents("php://input");
     $data = json_decode($raw, true);
-
-    if (!$data) {
-        // Si no vino JSON, probamos con POST normal
-        $data = $_POST;
-    }
+    if (!$data) $data = $_POST;
 
     if (!isset($data["usuario"], $data["password"])) {
         echo json_encode(["status" => "error", "message" => "Faltan datos"]);
@@ -26,10 +21,9 @@ try {
     $usuario = trim($data["usuario"]);
     $password = trim($data["password"]);
 
-    // Buscar usuario en la BD
-    $stmt = $conn->prepare("SELECT id, fundacion_id, usuario, password, rol_id, nombre, intentos, bloqueado 
-                            FROM usuarios 
-                            WHERE usuario = :usuario");
+    // Buscar usuario
+    $stmt = $conn->prepare("SELECT id, fundacion_id, usuario, password, rol_id, nombre, intentos, bloqueo_timestamp 
+                            FROM usuarios WHERE usuario = :usuario");
     $stmt->bindParam(":usuario", $usuario, PDO::PARAM_STR);
     $stmt->execute();
 
@@ -40,46 +34,78 @@ try {
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Validar si está bloqueado
-    if ($user['bloqueado']) {
-        echo json_encode([
-            "status" => "error",
-            "message" => "Tu cuenta fue bloqueada por múltiples intentos fallidos. Podrás volver a ingresar en 15 minutos."
-        ]);
-        exit;
+    // Tiempo de bloqueo en segundos (2 minutos)
+    $lockTime = 2 * 60;
+    $ahora = time();
+
+    if (!is_null($user['bloqueo_timestamp'])) {
+        $tiempoBloqueo = (int)$user['bloqueo_timestamp'];
+        $diferencia = $ahora - $tiempoBloqueo;
+
+        if ($diferencia < $lockTime) {
+            $segundosRestantes = $lockTime - $diferencia;
+            $minutos = floor($segundosRestantes / 60);
+            $segundos = $segundosRestantes % 60;
+            $tiempoFormateado = sprintf("%d:%02d", $minutos, $segundos);
+
+            echo json_encode([
+                "status" => "error",
+                "message" => "Tu cuenta está bloqueada. Intenta nuevamente en $tiempoFormateado minutos."
+            ]);
+            exit;
+        } else {
+            // Desbloquear usuario
+            $stmtUnlock = $conn->prepare("UPDATE usuarios SET bloqueo_timestamp = NULL, intentos = 0 WHERE id = :id");
+            $stmtUnlock->execute([":id" => $user["id"]]);
+            $user['intentos'] = 0;
+        }
     }
 
     // Validar contraseña
     if (!password_verify($password, $user["password"])) {
         $nuevosIntentos = $user["intentos"] + 1;
-        $bloquear = $nuevosIntentos >= 3 ? 1 : 0;
 
-        $stmtUpdate = $conn->prepare("UPDATE usuarios SET intentos = :intentos, bloqueado = :bloqueado WHERE id = :id");
-        $stmtUpdate->execute([
-            ":intentos" => $nuevosIntentos,
-            ":bloqueado" => $bloquear,
-            ":id" => $user["id"]
-        ]);
+        if ($nuevosIntentos >= 3) {
+            // Bloquear y guardar timestamp
+            $stmtUpdate = $conn->prepare("UPDATE usuarios SET intentos = :intentos, bloqueo_timestamp = :bloqueo WHERE id = :id");
+            $stmtUpdate->execute([
+                ":intentos" => $nuevosIntentos,
+                ":bloqueo" => $ahora,
+                ":id" => $user["id"]
+            ]);
 
-        $msg = $bloquear 
-            ? "Usuario bloqueado por múltiples intentos fallidos"
-            : "Contraseña incorrecta. Intentos: $nuevosIntentos/3";
+            echo json_encode([
+                "status" => "error",
+                "message" => "Usuario bloqueado por múltiples intentos fallidos. Intenta de nuevo en 2 minutos."
+            ]);
+            exit;
+        } else {
+            // Solo actualizar intentos
+            $stmtUpdate = $conn->prepare("UPDATE usuarios SET intentos = :intentos WHERE id = :id");
+            $stmtUpdate->execute([
+                ":intentos" => $nuevosIntentos,
+                ":id" => $user["id"]
+            ]);
 
-        echo json_encode(["status" => "error", "message" => $msg]);
-        exit;
+            echo json_encode([
+                "status" => "error",
+                "message" => "Contraseña incorrecta. Intentos: $nuevosIntentos/3"
+            ]);
+            exit;
+        }
     }
 
-    // Resetear intentos fallidos
-    $stmtReset = $conn->prepare("UPDATE usuarios SET intentos = 0 WHERE id = :id");
+    // Login exitoso, resetear estado
+    $stmtReset = $conn->prepare("UPDATE usuarios SET intentos = 0, bloqueo_timestamp = NULL WHERE id = :id");
     $stmtReset->execute([":id" => $user["id"]]);
 
-    // Guardar sesión
+    // Iniciar sesión
     $_SESSION["usuario_id"] = $user["id"];
     $_SESSION["nombre"] = $user["nombre"];
     $_SESSION["rol_id"] = $user["rol_id"];
 
-    // Redirección según rol
-    $redirect = "home.php"; // por defecto
+    // Redirección por rol
+    $redirect = "home.php";
     if ($user['rol_id'] == 1 || str_ends_with($user['usuario'], '.admin')) {
         $_SESSION["user_type"] = "admin";
         $redirect = "Admin.php";
@@ -106,3 +132,4 @@ try {
         "message" => "Error en el servidor: " . $e->getMessage()
     ]);
 }
+?>
